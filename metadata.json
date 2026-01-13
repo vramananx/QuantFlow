@@ -1,0 +1,5 @@
+{
+  "name": "QuantFlow Backtester Pro",
+  "description": "A professional portfolio backtesting application with a custom strategy DSL, quantitative metrics, and multi-asset simulation capabilities.",
+  "requestFramePermissions": []
+}
