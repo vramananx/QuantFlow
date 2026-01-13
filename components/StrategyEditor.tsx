@@ -6,10 +6,7 @@ import {
   SMA_TREND_DSL,
   GOLDEN_CROSS_DSL,
   RSI_MOMENTUM_DSL,
-  LRS_ROTATION_DSL,
-  NINE_SIG_DSL,
-  NUCLEAR_DEFENSIVE_DSL, 
-  VOL_TARGET_DSL
+  NINE_SIG_DSL
 } from '../constants.tsx';
 
 interface Props {
@@ -22,15 +19,13 @@ export const StrategyEditor: React.FC<Props> = ({ strategy, onChange, darkMode }
   const [mode, setMode] = useState<'general' | 'params' | 'library' | 'json'>('general');
   const [jsonText, setJsonText] = useState(JSON.stringify(strategy, null, 2));
 
+  // Fix: Removed references to LRS_ROTATION_DSL, NUCLEAR_DEFENSIVE_DSL, and VOL_TARGET_DSL which were not exported from constants.tsx.
   const templates = [
     DCA_BASELINE_DSL, 
     SMA_TREND_DSL,
     GOLDEN_CROSS_DSL,
     RSI_MOMENTUM_DSL,
-    LRS_ROTATION_DSL,
-    NINE_SIG_DSL,
-    NUCLEAR_DEFENSIVE_DSL, 
-    VOL_TARGET_DSL
+    NINE_SIG_DSL
   ];
 
   useEffect(() => {

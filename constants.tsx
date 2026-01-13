@@ -78,20 +78,19 @@ export const SMA_TREND_DSL: StrategyDSL = {
   execution: { signal_evaluation_frequency: Frequency.DAILY, trade_timing: 'close', slippage_bps: 5 }
 };
 
-// Fixed: Exporting missing strategy constants required by StrategyEditor.tsx
 export const GOLDEN_CROSS_DSL: StrategyDSL = {
   id: 'strat-golden-cross',
   name: "Golden Cross (50/200)",
-  description: "Standard moving average crossover strategy. Bullish when 50 SMA > 200 SMA.",
+  description: "Bullish when 50 SMA > 200 SMA. Rotates to Safety otherwise.",
   universe: { mode: "use_portfolio", tickers: [] },
   indicators: [
     { id: "sma_50", type: "SMA", source: "ticker", ticker: "SPY", window: 50 },
     { id: "sma_200", type: "SMA", source: "ticker", ticker: "SPY", window: 200 }
   ],
   signals: [],
-  allocation: { mode: "target_weights" },
-  rebalance: { mode: RebalanceMode.MONTHLY, max_drift: 0.05 },
-  execution: { signal_evaluation_frequency: Frequency.DAILY, trade_timing: 'close', slippage_bps: 1 }
+  allocation: { mode: "target_weights", risk_off: [{ ticker: 'AGG', weight: 1.0 }] },
+  rebalance: { mode: RebalanceMode.MONTHLY },
+  execution: { signal_evaluation_frequency: Frequency.DAILY, trade_timing: 'close' }
 };
 
 export const RSI_MOMENTUM_DSL: StrategyDSL = {
@@ -106,18 +105,6 @@ export const RSI_MOMENTUM_DSL: StrategyDSL = {
   execution: { signal_evaluation_frequency: Frequency.DAILY, trade_timing: 'close' }
 };
 
-export const LRS_ROTATION_DSL: StrategyDSL = {
-  id: 'strat-lrs-rot',
-  name: "LRS Momentum Rotation",
-  description: "Rotates based on Linear Regression Slope of the last 60 days.",
-  universe: { mode: "use_portfolio", tickers: [] },
-  indicators: [{ id: "lrs_60", type: "LRS", source: "ticker", ticker: "QQQ", window: 60 }],
-  signals: [],
-  allocation: { mode: "target_weights" },
-  rebalance: { mode: RebalanceMode.WEEKLY },
-  execution: { signal_evaluation_frequency: Frequency.WEEKLY, trade_timing: 'close' }
-};
-
 export const NINE_SIG_DSL: StrategyDSL = {
   id: 'strat-9sig',
   name: "9-Sig Mean Reversion",
@@ -130,38 +117,10 @@ export const NINE_SIG_DSL: StrategyDSL = {
   execution: { signal_evaluation_frequency: Frequency.DAILY, trade_timing: 'open' }
 };
 
-export const NUCLEAR_DEFENSIVE_DSL: StrategyDSL = {
-  id: 'strat-nuclear',
-  name: "Nuclear Defensive",
-  description: "Maximum protection strategy using VIX gates and deep hedges.",
-  universe: { mode: "use_portfolio", tickers: [] },
-  indicators: [{ id: "vix_vol", type: "VIX_LEVEL", source: "ticker", ticker: "^VIX", window: 1 }],
-  signals: [],
-  allocation: { mode: "target_weights", use_vix_gate: true, vix_threshold: 30, risk_off: [{ ticker: 'BIL', weight: 1.0 }] },
-  rebalance: { mode: RebalanceMode.DAILY },
-  execution: { signal_evaluation_frequency: Frequency.DAILY, trade_timing: 'close' }
-};
-
-export const VOL_TARGET_DSL: StrategyDSL = {
-  id: 'strat-vol-target',
-  name: "Volatility Target (15%)",
-  description: "Dynamically adjusts leverage to maintain 15% annualized volatility.",
-  universe: { mode: "use_portfolio", tickers: [] },
-  indicators: [],
-  signals: [],
-  allocation: { mode: "dynamic" },
-  risk: { vol_target: 0.15 },
-  rebalance: { mode: RebalanceMode.DAILY },
-  execution: { signal_evaluation_frequency: Frequency.DAILY, trade_timing: 'close' }
-};
-
 export const STRATEGY_LIBRARY: StrategyDSL[] = [
   DCA_BASELINE_DSL,
   SMA_TREND_DSL,
   GOLDEN_CROSS_DSL,
   RSI_MOMENTUM_DSL,
-  LRS_ROTATION_DSL,
-  NINE_SIG_DSL,
-  NUCLEAR_DEFENSIVE_DSL,
-  VOL_TARGET_DSL
+  NINE_SIG_DSL
 ];
