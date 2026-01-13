@@ -35,8 +35,6 @@ const ASSET_PROFILES: Record<string, { mu: number; vol: number; skew: number }> 
 
 const getAssetProfile = (ticker: string) => ASSET_PROFILES[ticker] || ASSET_PROFILES['SPY'];
 
-// --- PAPER TRADING SIMULATOR ---
-// This simulates a 'live' environment where the strategy checks signals every 'tick'
 export const simulateLiveTurn = (
   strategy: StrategyDSL, 
   currentPortfolio: AssetWeight[], 
@@ -44,12 +42,8 @@ export const simulateLiveTurn = (
 ): Order[] => {
   const newOrders: Order[] = [];
   const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-  // Example Logic: Regime Filter Check
   const filterTicker = strategy.allocation.regime_filter_ticker || 'SPY';
   const currentPrice = lastPrices[filterTicker] || 100;
-  
-  // Simulated SMA Check (Simplified for Paper Trade visibility)
   const isBullish = currentPrice > 100; 
 
   if (!isBullish && strategy.allocation.risk_off) {
@@ -65,7 +59,6 @@ export const simulateLiveTurn = (
         });
      });
   }
-  
   return newOrders;
 };
 
@@ -86,6 +79,7 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
     use_local_data_priority: false 
   };
   
+  const contribution = request.contribution || { amount: 0, frequency: Frequency.NONE };
   const localDataMap = request.local_data || {};
   let usedLocalData = false;
 
@@ -96,27 +90,56 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
   let benchmarkVal = request.initial_capital;
   let totalContributed = 0;
   let investedCapital = request.initial_capital;
-  let lastMonth = -1;
   
   const equityCurve: any[] = [];
   const benchmarkCurve: any[] = [];
-  const drawdownCurve: any[] = [];
   const dailyReturns: number[] = [];
   const dates: string[] = [];
   const lastPrices: Record<string, number> = {};
+
+  let lastContribDay = -1;
+  let lastContribWeek = -1;
+  let lastContribMonth = -1;
 
   for (let i = 0; i < totalDays; i++) {
     const currentDate = new Date(start.getTime() + i * 86400000);
     const dateStr = currentDate.toISOString().split('T')[0];
     const dayOfWeek = currentDate.getDay(); 
+    const dayOfMonth = currentDate.getDate();
+    const month = currentDate.getMonth();
+    
+    // Skip weekends
     if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-    // 1. Data Ingestion Logic (Parquet Overrides)
+    // 1. Contribution Logic
+    let isContribDay = false;
+    if (contribution.amount > 0) {
+        if (contribution.frequency === Frequency.DAILY) {
+            isContribDay = true;
+        } else if (contribution.frequency === Frequency.WEEKLY && dayOfWeek === (contribution.day_of_week || 5) && lastContribWeek !== i / 7) {
+            isContribDay = true;
+            lastContribWeek = Math.floor(i / 7);
+        } else if (contribution.frequency === Frequency.MONTHLY && dayOfMonth === (contribution.day_of_week || 1) && lastContribMonth !== month) {
+            isContribDay = true;
+            lastContribMonth = month;
+        } else if (contribution.frequency === Frequency.QUARTERLY && dayOfMonth === 1 && month % 3 === 0 && lastContribMonth !== month) {
+            isContribDay = true;
+            lastContribMonth = month;
+        }
+    }
+
+    if (isContribDay) {
+        currentVal += contribution.amount;
+        benchmarkVal += contribution.amount;
+        totalContributed += contribution.amount;
+        investedCapital += contribution.amount;
+    }
+
+    // 2. Data Ingestion
     let dailyRet = 0;
     let bRet = 0;
 
     if (config.use_local_data_priority && localDataMap[dateStr]) {
-       // Check for benchmark data
        if (localDataMap[dateStr]['SPY'] && lastPrices['SPY']) {
           bRet = (localDataMap[dateStr]['SPY'] - lastPrices['SPY']) / lastPrices['SPY'];
        } else {
@@ -124,7 +147,6 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
        }
        lastPrices['SPY'] = localDataMap[dateStr]['SPY'] || 100;
 
-       // Check for portfolio data
        let portReturn = 0;
        let foundAll = true;
        portfolio.forEach(asset => {
@@ -144,7 +166,6 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
           dailyRet = ASSET_PROFILES['SPY'].mu + (randn_bm() * ASSET_PROFILES['SPY'].vol);
        }
     } else {
-       // Generator Fallback
        bRet = ASSET_PROFILES['SPY'].mu + (randn_bm() * ASSET_PROFILES['SPY'].vol);
        dailyRet = 0;
        portfolio.forEach(a => {
@@ -153,7 +174,6 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
        });
     }
 
-    // Apply simulation
     benchmarkVal *= (1 + bRet);
     currentVal *= (1 + dailyRet * slip_factor);
     dailyReturns.push(dailyRet);

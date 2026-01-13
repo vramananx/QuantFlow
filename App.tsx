@@ -38,7 +38,7 @@ const App: React.FC = () => {
   const [startDate, setStartDate] = useState('2010-02-01');
   const [endDate, setEndDate] = useState('2025-12-31');
 
-  // Cashflow
+  // Cashflow (Restored)
   const [contribAmount, setContribAmount] = useState(1000);
   const [contribFreq, setContribFreq] = useState<Frequency>(Frequency.MONTHLY);
   const [contribDay, setContribDay] = useState(5);
@@ -216,6 +216,26 @@ const App: React.FC = () => {
                     <span className="text-[9px] font-bold text-slate-400 uppercase">Initial Capital</span>
                     <input type="number" value={capital} onChange={e => setCapital(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-xs font-black dark:text-white" />
                  </div>
+                 
+                 {/* Restored Contribution Section */}
+                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                    <div className="space-y-1">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Periodic Contribution ($)</span>
+                        <input type="number" value={contribAmount} onChange={e => setContribAmount(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-xs font-black dark:text-white" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Freq</span>
+                            <select value={contribFreq} onChange={e => setContribFreq(e.target.value as Frequency)} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2 text-[10px] font-black dark:text-white">
+                                {Object.values(Frequency).filter(f => f !== Frequency.NONE).map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Day</span>
+                            <input type="number" min="1" max="31" value={contribDay} onChange={e => setContribDay(Number(e.target.value))} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2 text-[10px] font-black dark:text-white" />
+                        </div>
+                    </div>
+                 </div>
              </div>
          )}
 
@@ -343,7 +363,7 @@ const App: React.FC = () => {
             {activeTab === 'Leaderboard' && matrixResults && <LeaderboardView data={matrixResults} onSelect={(r) => { setResults(r.fullResponse); setActiveTab('Performance'); }} />}
             {activeTab === 'Correlations' && results && <CorrelationDynamicsView portfolios={portfolios} historicalData={results.historical_correlations || []} />}
             {activeTab === 'TradeLog' && results && <TradeLogView data={results} />}
-            {activeTab === 'DataSettings' && <DataSettingsView onDataUpdate={setLocalData} localDataActive={localDataActive} setLocalDataActive={setLocalDataActive} />}
+            {activeTab === 'DataSettings' && <DataSettingsView onDataUpdate={(d) => setLocalData(prev => ({...prev, ...d}))} localDataActive={localDataActive} setLocalDataActive={setLocalDataActive} />}
             {activeTab === 'Brokerage' && <BrokerageView isPaperTrading={isPaperTradeMode} />}
           </div>
         </Layout>
