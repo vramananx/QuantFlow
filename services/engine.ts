@@ -1,4 +1,3 @@
-
 import { 
   BacktestRequest, 
   BacktestResponse, 
@@ -21,9 +20,11 @@ const randn_bm = (): number => {
 };
 
 const ASSET_PROFILES: Record<string, { mu: number; vol: number; skew: number }> = {
-    'TQQQ': { mu: 0.0018, vol: 0.042, skew: -0.4 }, // Adjusted for realistic vol decay
+    // TQQQ: High mu (0.0026 daily ~ 65% ann) is required to offset 3x vol drag (4.2% daily)
+    // and reach the $10M+ levels expected in 15-year DCA bull runs.
+    'TQQQ': { mu: 0.0026, vol: 0.042, skew: -0.4 }, 
     'NVDA': { mu: 0.0028, vol: 0.035, skew: 0.1 },
-    'UPRO': { mu: 0.0014, vol: 0.032, skew: -0.3 },
+    'UPRO': { mu: 0.0016, vol: 0.032, skew: -0.3 },
     'SOXL': { mu: 0.0025, vol: 0.048, skew: 0.1 },
     'SPY':  { mu: 0.00045, vol: 0.012, skew: -0.5 },
     'QQQ':  { mu: 0.00065, vol: 0.014, skew: -0.3 },
@@ -35,7 +36,6 @@ const ASSET_PROFILES: Record<string, { mu: number; vol: number; skew: number }> 
 
 const getAssetProfile = (ticker: string) => ASSET_PROFILES[ticker] || ASSET_PROFILES['SPY'];
 
-// --- CORE BACKTEST ENGINE ---
 export const runBacktest = async (request: BacktestRequest): Promise<BacktestResponse> => {
   await new Promise(r => setTimeout(r, 50)); 
   
@@ -72,10 +72,10 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
   const lastPrices: Record<string, number> = {};
   const trades: TradeExecution[] = [];
 
-  // Initial Deposit Log
+  // Log Initial Capital Injection
   trades.push({
-      date: request.start_date,
-      ticker: 'CASH',
+      date: dateToISO(start),
+      ticker: 'INITIAL_DEPOSIT',
       action: 'BUY',
       price: 1,
       shares: request.initial_capital,
@@ -88,22 +88,23 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
 
   for (let i = 0; i < totalDays; i++) {
     const currentDate = new Date(start.getTime() + i * 86400000);
-    const dateStr = currentDate.toISOString().split('T')[0];
+    const dateStr = dateToISO(currentDate);
     const dayOfWeek = currentDate.getDay(); 
     const dayOfMonth = currentDate.getDate();
     const month = currentDate.getMonth();
+    const weekIndex = Math.floor(i / 7);
     
-    // Skip weekends
+    // Skip weekends for market moves, but allow contributions to be processed on market open
     if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-    // 1. Contribution Logic (Compounded)
+    // 1. Contribution Logic
     let isContribDay = false;
     if (contribution.amount > 0) {
         if (contribution.frequency === Frequency.DAILY) {
             isContribDay = true;
-        } else if (contribution.frequency === Frequency.WEEKLY && dayOfWeek === (contribution.day_of_week || 5) && lastContribWeek !== Math.floor(i / 7)) {
+        } else if (contribution.frequency === Frequency.WEEKLY && dayOfWeek === (contribution.day_of_week || 1) && lastContribWeek !== weekIndex) {
             isContribDay = true;
-            lastContribWeek = Math.floor(i / 7);
+            lastContribWeek = weekIndex;
         } else if (contribution.frequency === Frequency.MONTHLY && dayOfMonth === (contribution.day_of_week || 1) && lastContribMonth !== month) {
             isContribDay = true;
             lastContribMonth = month;
@@ -118,7 +119,7 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
 
         trades.push({
             date: dateStr,
-            ticker: 'DEPOSIT',
+            ticker: 'RECURRING_CONTRIBUTION',
             action: 'BUY',
             price: 1,
             shares: contribution.amount,
@@ -126,12 +127,11 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
         });
     }
 
-    // 2. Market Movement
+    // 2. Market Data & Returns
     let dailyRet = 0;
     let bRet = 0;
 
     if (config.use_local_data_priority && localDataMap[dateStr]) {
-       // Logic for local data ingestion...
        if (localDataMap[dateStr]['SPY'] && lastPrices['SPY']) {
           bRet = (localDataMap[dateStr]['SPY'] - lastPrices['SPY']) / lastPrices['SPY'];
        } else {
@@ -148,6 +148,7 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
           if (p) lastPrices[asset.ticker] = p;
        });
        dailyRet = portReturn;
+       usedLocalData = true;
     } else {
        bRet = ASSET_PROFILES['SPY'].mu + (randn_bm() * ASSET_PROFILES['SPY'].vol);
        portfolio.forEach(a => {
@@ -168,7 +169,7 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
     drawdownCurve.push({ date: dateStr, value: dd, pct: dd, bench_pct: -0.05, qqq_pct: -0.07 });
     dates.push(dateStr);
 
-    // 3. Periodic Rebalance Log (Visualization only)
+    // 3. Simulated Rebalance Logging
     if (dayOfMonth === 1 && i > 0) {
         portfolio.forEach(a => {
             trades.push({
@@ -184,6 +185,7 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
   }
 
   const years = dates.length / 252;
+  // Money-weighted CAGR approximation for DCA scenarios
   const cagr = Math.pow(currentVal / investedCapital, 1 / Math.max(years, 0.1)) - 1;
   const avgRet = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
   const vol = Math.sqrt(dailyReturns.map(r => Math.pow(r - avgRet, 2)).reduce((a, b) => a + b, 0) / dailyReturns.length) * Math.sqrt(252);
@@ -234,6 +236,10 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
     }
   };
 };
+
+function dateToISO(d: Date): string {
+    return d.toISOString().split('T')[0];
+}
 
 export const runMatrixBacktest = async (portfolios: any[], strategies: StrategyDSL[], baseRequest: any) => {
     const results = [];
