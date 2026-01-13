@@ -109,12 +109,12 @@ export const PerformanceView: React.FC<Props> = ({ data, darkMode }) => {
       {activeTab === 'summary' && (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                <MetricCard label="Final Balance" value={formatCurrency(data.metrics.final_value)} color="text-slate-900 dark:text-white" sub={`+${formatCurrency(data.metrics.net_profit)} Net`} />
+                <MetricCard label="Final Balance" value={formatCurrency(data.metrics.final_value)} color="text-slate-900 dark:text-white" sub={`+${formatCurrency(data.metrics.net_profit)} Net Profit`} />
+                <MetricCard label="Total Invested" value={formatCurrency(data.metrics.initial_balance + data.metrics.total_contributions)} color="text-blue-600" sub="Capital Baseline" />
                 <MetricCard label="CAGR" value={formatPercent(data.metrics.cagr)} color={getColorForValue(data.metrics.cagr)} sub="Compound Annual Growth" />
                 <MetricCard label="Sharpe Ratio" value={formatNum(data.metrics.sharpe)} color="text-blue-500" sub="Risk Adjusted Return" tooltip="Excess return per unit of deviation." />
                 <MetricCard label="Max Drawdown" value={formatPercent(data.metrics.max_drawdown)} color="text-rose-500" sub="Peak to Trough" />
                 <MetricCard label="Sortino" value={formatNum(data.metrics.sortino)} color="text-emerald-500" sub="Downside Risk Adj" />
-                <MetricCard label="Serenity Ratio" value={formatNum(data.metrics.serenity_ratio || 0)} color="text-purple-500" sub="Advanced Risk/Reward" tooltip="Penalizes volatility and ulcer index." />
                 <MetricCard label="Ulcer Index" value={formatNum(data.metrics.ulcer_index || 0)} color="text-slate-500" sub="Pain Duration & Depth" />
                 <MetricCard label="Recovery Factor" value={formatNum(data.metrics.recovery_factor || 0)} color="text-blue-400" sub="Net Profit / Max DD" />
                 <MetricCard label="Alpha" value={formatNum(data.metrics.alpha)} color={getColorForValue(data.metrics.alpha)} sub="Vs Benchmark" />
