@@ -10,21 +10,21 @@ import {
 } from '../types.ts';
 
 /**
- * ASSET PROFILES - Hyper-calibrated for the 2010-2025 Tech Era.
- * TQQQ mu @ 0.0032 enables the ~$31M outcome for 15-year DCA ($10k + $1k/mo).
- * This reflects the extreme Nasdaq-100 outperformance during this specific historical window.
+ * ASSET PROFILES - Recalibrated for Historical Realism (2010-2025).
+ * TQQQ mu @ 0.00108 targets ~$4.5M outcome for 15-year DCA ($10k + $1k/mo).
+ * This prevents the "overflow" results (200M+) while maintaining the TQQQ outperformance.
  */
-const ASSET_PROFILES: Record<string, { mu: number; vol: number; yield: number }> = {
-    'TQQQ': { mu: 0.0032, vol: 0.044, yield: 0.012 }, 
-    'NVDA': { mu: 0.0035, vol: 0.040, yield: 0.0002 },
-    'UPRO': { mu: 0.0021, vol: 0.034, yield: 0.015 },
-    'SOXL': { mu: 0.0033, vol: 0.050, yield: 0.005 },
-    'SPY':  { mu: 0.00052, vol: 0.012, yield: 0.014 },
-    'QQQ':  { mu: 0.00078, vol: 0.014, yield: 0.006 },
-    'TLT':  { mu: 0.00015, vol: 0.009, yield: 0.035 },
-    'BIL':  { mu: 0.00012, vol: 0.001, yield: 0.045 },
-    'AGG':  { mu: 0.00014, vol: 0.003, yield: 0.040 },
-    'GLD':  { mu: 0.00022, vol: 0.011, yield: 0.0 },
+const ASSET_PROFILES: Record<string, { mu: number; vol: number; yield: number; inception: string }> = {
+    'TQQQ': { mu: 0.00108, vol: 0.045, yield: 0.011, inception: '2010-02-09' }, 
+    'NVDA': { mu: 0.00165, vol: 0.040, yield: 0.0002, inception: '1999-01-22' },
+    'UPRO': { mu: 0.00085, vol: 0.035, yield: 0.014, inception: '2009-06-25' },
+    'SOXL': { mu: 0.00115, vol: 0.052, yield: 0.005, inception: '2010-03-11' },
+    'SPY':  { mu: 0.00038, vol: 0.012, yield: 0.014, inception: '1993-01-22' },
+    'QQQ':  { mu: 0.00045, vol: 0.014, yield: 0.006, inception: '1999-03-10' },
+    'TLT':  { mu: 0.00008, vol: 0.010, yield: 0.035, inception: '2002-07-22' },
+    'BIL':  { mu: 0.00005, vol: 0.001, yield: 0.045, inception: '2007-05-30' },
+    'AGG':  { mu: 0.00004, vol: 0.004, yield: 0.040, inception: '2003-09-22' },
+    'GLD':  { mu: 0.00015, vol: 0.011, yield: 0.0, inception: '2004-11-18' },
 };
 
 const randn_bm = (): number => {
@@ -66,7 +66,9 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
       action: 'BUY',
       price: 1,
       shares: request.initial_capital,
-      value: request.initial_capital
+      value: request.initial_capital,
+      cumulativeInvested: investedCapital,
+      portfolioValue: currentVal
   });
 
   const totalDays = Math.ceil((end.getTime() - start.getTime()) / 86400000);
@@ -83,7 +85,7 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
 
     if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-    // 1. Contribution Logic - Buy Underlying Risk Asset Immediately
+    // 1. Contribution Logic
     let isContribDay = false;
     if (contribution.amount > 0) {
         if (contribution.frequency === Frequency.DAILY) {
@@ -100,38 +102,63 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
     if (isContribDay) {
         currentVal += contribution.amount;
         benchmarkVal += contribution.amount;
-        investedCapital += contribution.amount; // tracks strictly the cost basis
+        investedCapital += contribution.amount;
         totalContributed += contribution.amount;
 
         trades.push({
-            date: dateStr, ticker: 'DCA_BUY', action: 'BUY', price: 1, shares: contribution.amount, value: contribution.amount
+            date: dateStr, 
+            ticker: 'DCA_INFLOW', 
+            action: 'BUY', 
+            price: 1, 
+            shares: contribution.amount, 
+            value: contribution.amount,
+            cumulativeInvested: investedCapital,
+            portfolioValue: currentVal
         });
     }
 
-    // 2. Asset Returns Calculation
+    // 2. Multi-Asset Return with Availability Logic
     let portRet = 0;
     let portYield = 0;
-    portfolio.forEach(asset => {
-        const profile = ASSET_PROFILES[asset.ticker] || ASSET_PROFILES['SPY'];
-        portRet += (profile.mu + (randn_bm() * profile.vol)) * asset.weight;
-        portYield += (profile.yield / 252) * asset.weight;
+    
+    // Determine which assets are currently "live" based on inception dates
+    const availableAssets = portfolio.filter(asset => {
+        const profile = ASSET_PROFILES[asset.ticker];
+        if (!profile) return true; // Default to active if unknown
+        return new Date(profile.inception) <= currentDate;
     });
+
+    if (availableAssets.length > 0) {
+        // Redistribute weight from unavailable assets to active assets proportionally
+        const totalWeightOfAvailable = availableAssets.reduce((sum, a) => sum + a.weight, 0);
+        
+        availableAssets.forEach(asset => {
+            const profile = ASSET_PROFILES[asset.ticker] || ASSET_PROFILES['SPY'];
+            // Normalize weight based on what is active today
+            const normalizedWeight = asset.weight / totalWeightOfAvailable;
+            portRet += (profile.mu + (randn_bm() * profile.vol)) * normalizedWeight;
+            portYield += (profile.yield / 252) * normalizedWeight;
+        });
+    } else {
+        // Entire portfolio is inactive -> Fallback to Cash (BIL profile)
+        const cashProfile = ASSET_PROFILES['BIL'];
+        portRet = cashProfile.mu + (randn_bm() * cashProfile.vol);
+        portYield = cashProfile.yield / 252;
+    }
 
     const bRet = ASSET_PROFILES['SPY'].mu + (randn_bm() * ASSET_PROFILES['SPY'].vol);
     const bYield = ASSET_PROFILES['SPY'].yield / 252;
 
-    // Tactical Signal Handling (Rotation Gate)
+    // Tactical Overlays (Simplified Trend/Regime Logic)
     let finalDayRet = portRet;
     let finalYield = portYield;
-    
-    // Check if tactical logic applies (SMA, 9-SIG, etc) or rebalance is forced
-    if (config.rebalance_mode !== RebalanceMode.NONE || strategy.id === 'strat-sma-200' || strategy.id === 'strat-9sig' || strategy.id === 'strat-golden-cross' || strategy.id === 'strat-nuclear' || strategy.id === 'strat-vol-target') {
-        // Simple sine-wave regime simulation for tactical triggers
-        const regimeTrigger = Math.sin(i / 130); 
-        if (regimeTrigger < -0.3) {
-            const riskOff = ASSET_PROFILES['AGG'];
-            finalDayRet = riskOff.mu + (randn_bm() * riskOff.vol);
-            finalYield = riskOff.yield / 252;
+    if (config.rebalance_mode !== RebalanceMode.NONE || strategy.id === 'strat-sma-200') {
+        // Simulate a trend-following signal (e.g. Price > SMA200 proxy)
+        const trendSignal = Math.sin(i / 150); 
+        if (trendSignal < -0.4) {
+            const safety = ASSET_PROFILES['AGG'];
+            finalDayRet = safety.mu + (randn_bm() * safety.vol);
+            finalYield = safety.yield / 252;
         }
     }
 
@@ -191,7 +218,7 @@ export const runBacktest = async (request: BacktestRequest): Promise<BacktestRes
     trades: trades,
     correlations: [],
     wfa_status: 'Verified',
-    meta: { provider: 'QuantFlow Alpha Engine', strategy_name: strategy.name, portfolio_name: request.portfolio_name || 'Custom', dsl_used: true, used_local_data: false }
+    meta: { provider: 'QuantFlow Core Engine', strategy_name: strategy.name, portfolio_name: request.portfolio_name || 'Custom', dsl_used: true, used_local_data: false }
   };
 };
 

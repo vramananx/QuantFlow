@@ -45,7 +45,7 @@ export interface LocalDataset {
   tickers: string[];
   dateRange: { start: string; end: string };
   status: 'Ready' | 'Indexing' | 'Error';
-  data?: Record<string, OHLC[]>; // Actual data map
+  data?: Record<string, OHLC[]>; 
 }
 
 export interface IndicatorDSL {
@@ -147,6 +147,8 @@ export interface TradeExecution {
   shares: number;
   value: number;
   pnl?: number; 
+  cumulativeInvested?: number;
+  portfolioValue?: number;
 }
 
 export interface CorrelationNode {
@@ -188,7 +190,7 @@ export interface BacktestRequest {
   wfa?: WalkForwardConfig;
   contribution?: ContributionConfig;
   global_config?: GlobalSimulationConfig;
-  local_data?: Record<string, Record<string, number>>; // Date -> Ticker -> Price
+  local_data?: Record<string, Record<string, number>>; 
 }
 
 export interface BenchmarkMetrics {
@@ -223,8 +225,6 @@ export interface BacktestResponse {
     cagr: number;
     is_cagr?: number; 
     oos_cagr?: number;
-    
-    // Period Returns
     daily_return_avg: number;
     monthly_return_avg: number;
     annual_return_avg: number;
@@ -236,8 +236,6 @@ export interface BacktestResponse {
     three_year_return: number;
     five_year_return: number;
     ten_year_return: number;
-
-    // Risk
     max_drawdown: number;
     longest_drawdown_days?: number;
     volatility: number;
@@ -253,22 +251,17 @@ export interface BacktestResponse {
     recovery_factor?: number;
     risk_of_ruin?: number;
     kelly_criterion?: number;
-    
-    // Benchmark Comparison
     alpha: number;
     beta: number;
     correlation: number;
     treynor: number;
     information_ratio: number;
-
-    // Period Stats
     best_year: number;
     worst_year: number;
     best_month: number;
     worst_month: number;
     best_day?: number;
     worst_day?: number;
-    
     profit_factor?: number;
     expectancy?: number;
     robustness_score?: number;

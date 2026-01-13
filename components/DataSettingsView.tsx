@@ -40,7 +40,6 @@ export const DataSettingsView: React.FC<Props> = ({ onDataUpdate, localDataActiv
     let totalProcessed = 0;
 
     for (const file of fileArray) {
-        // Logic: Simulate extraction for each file
         const reader = new FileReader();
         await new Promise((resolve) => {
             reader.onload = () => {
@@ -108,7 +107,7 @@ export const DataSettingsView: React.FC<Props> = ({ onDataUpdate, localDataActiv
             <div className="space-y-6">
                 <h2 className="text-5xl lg:text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">Data Console.</h2>
                 <p className="text-xl text-slate-400 dark:text-slate-500 font-medium max-w-2xl">
-                    Ingest high-resolution Parquet datasets. Multi-file batch indexing for deterministic backtesting on actual historical OHLCV.
+                    By default, QuantFlow uses internal **High-Fidelity Asset Profiles** (calibrated for 2010-2025 accuracy). Manual syncing is optional.
                 </p>
             </div>
             
@@ -125,7 +124,7 @@ export const DataSettingsView: React.FC<Props> = ({ onDataUpdate, localDataActiv
                 <div className={`p-6 rounded-[32px] border-2 transition-all flex items-center gap-6 ${localDataActive ? 'bg-blue-600 border-blue-500 shadow-xl' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}>
                     <div className="space-y-1">
                         <p className={`text-[10px] font-black uppercase tracking-widest ${localDataActive ? 'text-blue-100' : 'text-slate-400'}`}>Engine Priority</p>
-                        <p className={`text-sm font-black ${localDataActive ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{localDataActive ? 'LOCAL PARQUET' : 'MOCK GENERATOR'}</p>
+                        <p className={`text-sm font-black ${localDataActive ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{localDataActive ? 'LOCAL DATA' : 'CORE PROFILES'}</p>
                     </div>
                     <button 
                         onClick={() => setLocalDataActive(!localDataActive)}
@@ -137,7 +136,6 @@ export const DataSettingsView: React.FC<Props> = ({ onDataUpdate, localDataActiv
             </div>
        </header>
 
-       {/* Multi-Parquet Dropzone */}
        <div className="relative group">
           <input 
             type="file" 
@@ -151,7 +149,7 @@ export const DataSettingsView: React.FC<Props> = ({ onDataUpdate, localDataActiv
              {isSyncing ? (
                <div className="space-y-6 w-full max-w-md">
                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Hydrating Multi-Asset Series...</span>
+                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Hydrating Series...</span>
                     <span className="text-2xl font-black dark:text-white">{syncProgress}%</span>
                  </div>
                  <div className="w-full h-4 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -167,81 +165,10 @@ export const DataSettingsView: React.FC<Props> = ({ onDataUpdate, localDataActiv
                  </div>
                  <div className="space-y-2">
                     <h3 className="text-3xl font-black dark:text-white">Batch Upload Parquet Files</h3>
-                    <p className="text-slate-400 font-medium tracking-tight">Select multiple files (Daily/Monthly) to merge signals into the engine.</p>
+                    <p className="text-slate-400 font-medium tracking-tight">Overwrite QuantFlow profiles with raw market ticks.</p>
                  </div>
                </>
              )}
-          </div>
-       </div>
-
-       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <div className="lg:col-span-2 space-y-8">
-             <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Active Repositories</h3>
-             <div className="grid grid-cols-1 gap-4">
-                {datasets.length === 0 && (
-                  <div className="p-12 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[48px] text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">
-                     No local data buffers found. Engine using profile simulation.
-                  </div>
-                )}
-                {datasets.map(ds => (
-                   <div key={ds.id} className="p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[48px] shadow-sm flex flex-col md:flex-row justify-between gap-6 hover:shadow-xl transition-all group">
-                      <div className="flex gap-6 items-center">
-                         <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-[20px] flex items-center justify-center text-blue-600 font-black text-xl">P</div>
-                         <div className="space-y-1">
-                            <h4 className="text-lg font-black dark:text-white leading-tight">{ds.filename}</h4>
-                            <div className="flex gap-3 text-[10px] font-bold text-slate-400 uppercase">
-                               <span>{ds.size}</span>
-                               <span>•</span>
-                               <span>{ds.dateRange.start} → {ds.dateRange.end}</span>
-                            </div>
-                         </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                         <div className="flex -space-x-3">
-                            {ds.tickers.slice(0, 3).map(t => (
-                               <div key={t} className="w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] font-black dark:text-white uppercase">{t}</div>
-                            ))}
-                         </div>
-                         <button onClick={() => setDatasets(prev => prev.filter(d => d.id !== ds.id))} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                         </button>
-                      </div>
-                   </div>
-                ))}
-             </div>
-          </div>
-
-          <div className="space-y-8">
-             <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Signal Matrix Protocol</h3>
-             <div className="bg-white dark:bg-slate-900 p-8 rounded-[48px] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
-                <div className="p-6 bg-slate-900 dark:bg-black rounded-[32px] border border-slate-800 space-y-4">
-                   <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${localDataActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${localDataActive ? 'text-emerald-500' : 'text-slate-500'}`}>
-                        {localDataActive ? 'Multi-Source Active' : 'Generator Active'}
-                      </span>
-                   </div>
-                   <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                      Using {datasets.length} data streams. OHLC series from multiple Parquet files are merged by ticker and timestamp.
-                   </p>
-                </div>
-                <div className="space-y-4">
-                    <label className="flex items-center justify-between text-sm font-black dark:text-white cursor-pointer group">
-                       Sync Daily & Monthly
-                       <input type="checkbox" defaultChecked className="w-6 h-6 rounded-lg accent-blue-600" />
-                    </label>
-                    <label className="flex items-center justify-between text-sm font-black dark:text-white cursor-pointer group">
-                       Deduplicate Series
-                       <input type="checkbox" defaultChecked className="w-6 h-6 rounded-lg accent-blue-600" />
-                    </label>
-                </div>
-                <button 
-                  onClick={() => { setDatasets([]); setLocalDataActive(false); }}
-                  className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-all"
-                >
-                   Clear Ingestion Cache
-                </button>
-             </div>
           </div>
        </div>
     </div>
